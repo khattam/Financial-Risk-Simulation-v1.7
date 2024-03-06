@@ -16,7 +16,7 @@ public class Bank {
     private List<Loan> loansGiven;
     private List<Loan> loansReceived;
 
-    
+    //Just checking if the git config works through eclispe after branch merge
     
  // Constants for the calculation (can be adjusted as needed)
     private static final double ALPHA = 1.0;
