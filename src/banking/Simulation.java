@@ -333,13 +333,28 @@ public class Simulation {
     }
     
  // Method to calculate the GVI for the banking sector
+//    public double calculateGlobalVulnerabilityIndex() {
+//        double totalVI = 0.0;
+//        for (Bank bank : banks) {
+//            totalVI += bank.getVulnerabilityIndex();
+//        }
+//        double gvi = totalVI / banks.size();
+//        allGVI.add(gvi);
+//        // Now we need to update the chart. We call the static method of GVIChartApplication.
+//        GVIChartApplication.updateChart(cycleCount, gvi);
+//        return gvi;
+//        
+//    }
+    
     public double calculateGlobalVulnerabilityIndex() {
         double totalVI = 0.0;
         for (Bank bank : banks) {
             totalVI += bank.getVulnerabilityIndex();
         }
-        allGVI.add(1.0*(totalVI/banks.size()));
-        return totalVI / banks.size();
+        double gvi = totalVI / banks.size();
+        allGVI.add(gvi);
+        GVIChartApplication.updateChart(cycleCount, gvi);
+        return gvi;
     }
     
     

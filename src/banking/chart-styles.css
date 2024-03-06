@@ -1,0 +1,14 @@
+.chart-series-line {
+    -fx-stroke-width: 2px;
+    -fx-effect: null;
+}
+
+.chart-line-symbol {
+    -fx-background-color: transparent, white;
+    -fx-padding: 0;
+}
+/* Additional styles for bad data points */
+.bad-data-symbol {
+    -fx-background-radius: 5px;
+    -fx-background-color: blue;
+}

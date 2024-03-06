@@ -12,6 +12,7 @@ public class SimulationTest {
     private static final double MAX_LOAN_AMOUNT = 20000; // Max loan amount for the random dependencies
     private Simulation simulation;
     private Random random = new Random();
+    private static final int continuousCyclesLimit = 500; // Limit for continuous mode
     
 
     public SimulationTest() {
@@ -101,9 +102,9 @@ public class SimulationTest {
         simulation.displayConsole(); // Display initial bank data
 
         Scanner scanner = new Scanner(System.in);
-        int continuousCyclesLimit = 200; // Limit for continuous mode
+       
         while (true) {
-            System.out.println("Press ENTER to proceed to the next cycle, 'c' for continuous mode, 'd' to display GVI list, or 'q' to quit.");
+        	System.out.println("Press ENTER to proceed to the next cycle, 'c' for continuous mode, 'd' to display GVI list, 's' to show GVI for a specific cycle, or 'q' to quit.");
             String input = scanner.nextLine();
 
             if ("q".equalsIgnoreCase(input)) {
@@ -112,6 +113,20 @@ public class SimulationTest {
 
             if ("d".equalsIgnoreCase(input)) {
                 List<Double> temp = simulation.getAllGVI();
+                continue;
+            }
+            
+            if ("s".equalsIgnoreCase(input)) {
+                System.out.println("Enter cycle number to display GVI:");
+                int cycleNumber = scanner.nextInt(); // Read cycle number
+                // Consume the newline
+                scanner.nextLine();
+                // Check if the cycle number is within the list bounds
+                if (cycleNumber >= 0 && cycleNumber < simulation.getAllGVI().size()) {
+                    System.out.println("GVI at cycle " + cycleNumber + ": " + simulation.getAllGVI().get(cycleNumber));
+                } else {
+                    System.out.println("Cycle number out of bounds.");
+                }
                 continue;
             }
 
@@ -150,52 +165,7 @@ public class SimulationTest {
     }
 
     
-    //Milestone 1 version
-    
-//    public void runSimulation() {
-//        initialiseBanks();
-//        simulation.displayGraphical(); // Display the graph with just nodes
-//        simulation.displayConsole(); // Display initial bank data
-//
-//        Scanner scanner = new Scanner(System.in);
-//        boolean continuousMode = false;
-//
-//        while (simulation.getCycleCount() < 1000) {
-//            if (!continuousMode) {
-//                System.out.println("Press 'c' for continuous mode, ENTER for next cycle, or 'q' to quit.");
-//                String input = scanner.nextLine();
-//
-//                if ("q".equalsIgnoreCase(input)) {
-//                    break; // Exit the loop if 'q' is entered
-//                } else if ("c".equalsIgnoreCase(input)) {
-//                    continuousMode = true;
-//                }
-//            }
-//
-//            // Create dependencies in every cycle
-//            createRandomDependencies();
-//
-//            // Process the cycle, update indexes and display
-//            simulation.processCycle();
-//            simulation.calculateIndexes();
-//            simulation.displayGraphical(); // Update the graph with current cycle data
-//            simulation.displayConsole(); // Display bank data after cycle
-//
-//            // Increment the cycle count
-//            simulation.incrementCycleCount();
-//
-//            if (continuousMode) {
-//                try {
-//                    Thread.sleep(100); // Delay for visibility, can be adjusted as needed
-//                } catch (InterruptedException e) {
-//                    Thread.currentThread().interrupt();
-//                    break;
-//                }
-//            }
-//        }
-//
-//        scanner.close(); // Close the scanner resource
-//    }
+   
 
         
     
@@ -209,13 +179,11 @@ public class SimulationTest {
         return simulation.getAllGVI(); // This method should return the list of GVI values
     }
 
+    
     public static void main(String[] args) {
-        SimulationTest test = new SimulationTest();
-        List<Double> gviData = test.runSimulationAndGetGVI(); // Run simulation and get data
-
-        // Pass the data to the JavaFX application
-        GVIChartApplication.setData(gviData);
-        Application.launch(GVIChartApplication.class, args); // Start JavaFX application
+        // Launch the JavaFX application.
+        Application.launch(GVIChartApplication.class, args);
     }
-//   
+    
+ 
 }
