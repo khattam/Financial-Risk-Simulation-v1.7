@@ -5,6 +5,11 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class Bank {
+	 private static int nextId = 0;  // Static counter to assign IDs
+	    private int id;
+	    
+	    
+	    
     private double assets;
     private double liabilities;
     private double influenceSpread;
@@ -15,10 +20,44 @@ public class Bank {
     
     private List<Loan> loansGiven;
     private List<Loan> loansReceived;
-
-    //Just checking if the git config works through eclispe after branch merge
+    private boolean isActive = true;
+    private boolean isFailed;
     
- // Constants for the calculation (can be adjusted as needed)
+    public void failBank() {
+        if (!isActive) {
+            return; // Already failed
+        }
+        System.out.println("Bank has failed: " + this);
+        isActive = false;
+    }
+    
+    
+
+
+    public boolean isActive() {
+        return isActive;
+    }
+    
+    public boolean isFailed() {
+        return isFailed;
+    }
+
+    public void fail() {
+        isFailed = true;
+    }
+    
+//    @Override
+//    public String toString() {
+//        return "Bank@" + Integer.toHexString(hashCode()) + "{assets=" + this.assets + ", liabilities=" + this.liabilities + "}";
+//    }
+    
+    @Override
+    public String toString() {
+        return "Bank " + id;  // Modified to show "Bank 1", "Bank 2", etc.
+    }
+
+
+
     private static final double ALPHA = 1.0;
     private static final double BETA = 1.0;
     private static final double LAMBDA = 0.5; // Example damping factor
@@ -26,6 +65,7 @@ public class Bank {
     // Constructor to set assets and liabilities
     public Bank(double assets, double liabilities) {
         this.assets = assets;
+        this.id = nextId++;
         this.liabilities = liabilities;
         this.influenceSpread = 0.0;
         this.vulnerabilityIndex = 0.0;
@@ -91,6 +131,18 @@ public class Bank {
         loansReceived.forEach(loan -> loan.remainingCycles--);
     }
 
+    public void adjustForExternalShock(double impact) {
+        // Example: reduce assets by a fraction of the impact
+        assets -= impact * 0.1;
+    }
+    
+    public void adjustAssets(double amount) {
+        assets += amount;
+    }
+
+    public void adjustLiabilities(double amount) {
+        liabilities += amount;
+    }
     
    
     
@@ -211,4 +263,12 @@ public class Bank {
                          .filter(loan -> loan.remainingCycles <= 0)
                          .collect(Collectors.toList());
     }
+
+
+
+
+	public int getId() {
+		// TODO Auto-generated method stub
+		return id;
+	}
 }

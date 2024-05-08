@@ -1,8 +1,13 @@
 package banking;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
+import java.util.Queue;
 import java.util.Random;
 import java.util.Set;
 
@@ -21,6 +26,9 @@ public class Simulation {
     private int cycleCount = 0;
     private boolean displayed = false;
     private List<Double> allGVI = new ArrayList<>();
+    private Random random = new Random();
+    private Map<Integer, List<String>> failuresByCycle = new HashMap<>(); // Stores failures by cycle
+    
     
 
     // Constructor initializes the adjacency matrix based on the number of banks
@@ -35,6 +43,103 @@ public class Simulation {
         adjacencyMatrix = new double[numberOfBanks][numberOfBanks];
         graph = new SingleGraph("Banking Network"); // Initialize the graph here
       
+    }
+    
+    
+    public void simulateFailures(int currentCycle) {
+    	
+        for (Bank bank : banks) {
+            if (bank.isActive() && bank.getAssets() < bank.getLiabilities()) {
+                bank.failBank();
+                logFailure(currentCycle, "Bank failed: " + bank);
+                System.out.println("This is due to starting failure");
+                triggerCascade(currentCycle, bank);
+            }
+        }
+    }
+
+
+    
+
+    private void triggerCascade(int currentCycle, Bank initialFailedBank) {
+        Queue<Bank> queue = new LinkedList<>();
+        queue.add(initialFailedBank);
+        Set<Bank> visited = new HashSet<>();
+
+        while (!queue.isEmpty()) {
+            Bank failedBank = queue.poll();
+            if (visited.contains(failedBank)) continue;
+            visited.add(failedBank);
+            int failedIndex = banks.indexOf(failedBank);
+
+            for (int i = 0; i < banks.size(); i++) {
+                if (adjacencyMatrix[failedIndex][i] > 0 && banks.get(i).isActive()) {
+                    // Apply a reduced random damping factor to mitigate the cascade's impact
+                    double dampingFactor = 0.01 + 0.05 * random.nextDouble();
+                    double lossAmount = adjacencyMatrix[failedIndex][i] * dampingFactor;
+
+                    // Adjust assets without allowing them to go negative
+                    double newAssets = banks.get(i).getAssets() - lossAmount;
+                    if (newAssets < 0) {
+                        banks.get(i).adjustAssets(-banks.get(i).getAssets()); // Reset to zero
+                    } else {
+                        banks.get(i).adjustAssets(-lossAmount);
+                    }
+
+                    // Check if the bank's assets fall below its liabilities after adjustment
+                    if (banks.get(i).getAssets() < banks.get(i).getLiabilities()) {
+                        // Calculate the asset/liability ratio
+                        double assetLiabilityRatio = banks.get(i).getAssets() / banks.get(i).getLiabilities();
+                        // Log the failure with the asset/liability ratio if it indicates financial instability
+                        if (assetLiabilityRatio < 1) {
+                            logFailure(currentCycle, "Bank " + banks.get(i).getId() + " failed due to cascade with A/L ratio: " + String.format("%.2f", assetLiabilityRatio));
+                            System.out.println("Bank " + banks.get(i).getId() + " failed due to cascade with A/L ratio: " + String.format("%.2f", assetLiabilityRatio));
+                            banks.get(i).failBank(); // Mark the bank as failed
+                            queue.add(banks.get(i)); // Add to the queue for further propagation of the cascade
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    
+
+   
+    
+    
+    public double calculateFailureProbability(Bank bank) {
+        double assetLiabilityRatio = bank.getAssets() / bank.getLiabilities();
+        double baseProbability = 0.05; // Base probability of failure if assets equal liabilities
+
+        if (assetLiabilityRatio > 1.0) {
+            
+            return baseProbability / assetLiabilityRatio;
+        } else {
+            // If liabilities are greater than or equal to assets, increase the probability of failure
+            return baseProbability * (2 - assetLiabilityRatio);
+        }
+    }
+
+    
+    public void forceFailBank(int bankIndex, int currentCycle) {
+        Bank bankToFail = banks.get(bankIndex);
+        //System.out.println("BankIndex,    ID"+ bankIndex + "     " + bankToFail.getId());
+        if (!bankToFail.isActive()) {
+            return; // If the bank is already inactive, do nothing
+        }
+        System.out.println("Forcibly failing Bank " + bankToFail.getId() + " at cycle " + currentCycle);
+        bankToFail.failBank();
+        logFailure(currentCycle, "Forcibly failed bank: Bank " + bankToFail.getId());
+        triggerCascade(currentCycle, bankToFail); // Trigger cascading failures from this failed bank
+        bankToFail.failBank();
+    }
+
+
+
+  
+    void logFailure(int cycle, String message) {
+        failuresByCycle.computeIfAbsent(cycle, k -> new ArrayList<>()).add(message);
     }
     
     public int getCycleCount() {
@@ -69,56 +174,7 @@ public class Simulation {
         banks.add(new Bank(assets, liabilities));
     }
 
-//    // Create a dependency between two banks
-//    public void createDependency(int bankId1, int bankId2, double amount) {
-//        Bank bank1 = banks.get(bankId1);
-//        Bank bank2 = banks.get(bankId2);
-//        bank1.giveLoan(bank2, amount);
-//        adjacencyMatrix[bankId1][bankId2] = amount;
-//        
-//        // Check if nodes exist before adding an edge
-//        if (graph.getNode(Integer.toString(bankId1)) == null) {
-//            graph.addNode(Integer.toString(bankId1));
-//            Node node1 = graph.getNode(Integer.toString(bankId1));
-//            node1.setAttribute("ui.label", "Bank " + bankId1);
-//        }
-//        if (graph.getNode(Integer.toString(bankId2)) == null) {
-//            graph.addNode(Integer.toString(bankId2));
-//            Node node2 = graph.getNode(Integer.toString(bankId2));
-//            node2.setAttribute("ui.label", "Bank " + bankId2);
-//        }
-//        
-//        Edge edge = graph.addEdge(bankId1 + "-" + bankId2, Integer.toString(bankId1), Integer.toString(bankId2), true);
-//        edge.setAttribute("ui.label", String.format("%.2f", amount));
-//    }
-    
-//    public void createDependency(int bankId1, int bankId2, double amount) {
-//        // Compose a unique ID for the edge
-//        String edgeId = bankId1 + "-" + bankId2;
-//
-//        // Only add the edge if it does not exist
-//        if (graph.getEdge(edgeId) == null) {
-//            Bank bank1 = banks.get(bankId1);
-//            Bank bank2 = banks.get(bankId2);
-//            bank1.giveLoan(bank2, amount);
-//            adjacencyMatrix[bankId1][bankId2] += amount; // Use '+=' to sum up multiple dependencies
-//
-//            if (graph.getNode(Integer.toString(bankId1)) == null) {
-//                graph.addNode(Integer.toString(bankId1));
-//                Node node1 = graph.getNode(Integer.toString(bankId1));
-//                node1.setAttribute("ui.label", "Bank " + bankId1);
-//            }
-//            if (graph.getNode(Integer.toString(bankId2)) == null) {
-//                graph.addNode(Integer.toString(bankId2));
-//                Node node2 = graph.getNode(Integer.toString(bankId2));
-//                node2.setAttribute("ui.label", "Bank " + bankId2);
-//            }
-//
-//            Edge edge = graph.addEdge(edgeId, Integer.toString(bankId1), Integer.toString(bankId2), true);
-//            edge.setAttribute("ui.label", String.format("%.2f", amount));
-//        }
-//    }
-    
+//    
  
     public void createDependency(int bankId1, int bankId2, double amount) {
         // Compose a unique ID for the edge
@@ -178,60 +234,27 @@ public class Simulation {
         // ... To be implemented
     }
 
-    // Display function to show the graph
-    // ... To be implemented
-//    public void displayConsole() {
-//        System.out.println("Bank Data:");
-//        for (int i = 0; i < banks.size(); i++) {
-//            Bank bank = banks.get(i);
-//            // Check if IS and VI have been calculated (are not zero)
-//            String influenceSpreadStr = (bank.getInfluenceSpread() != 0.0) ? String.format("%.2f", bank.getInfluenceSpread()) : "NaN";
-//            String vulnerabilityIndexStr = (bank.getVulnerabilityIndex() != 0.0) ? String.format("%.2f", bank.getVulnerabilityIndex()) : "NaN";
-//
-//            System.out.printf("Bank %d: A - %.2f L - %.2f IS - %s VI - %s%n",
-//                i, bank.getAssets(), bank.getLiabilities(), influenceSpreadStr, vulnerabilityIndexStr);
-//        }
-//        
-//        // Only print GVI if it's been calculated
-//        
-//            System.out.println("Global Vulnerability Index (GVI):"+gvi);
-//       }
+
     
-//    public void displayConsole() {
-//        System.out.println("Bank Data:");
-//        for (int i = 0; i < banks.size(); i++) {
-//            Bank bank = banks.get(i);
-//            // Count the number of connections for the current bank
-//            int connections = 0;
-//            for (int j = 0; j < banks.size(); j++) {
-//                if (adjacencyMatrix[i][j] != 0) {
-//                    connections++;
-//                }
-//                if (adjacencyMatrix[j][i] != 0) { // Assuming undirected graph
-//                    connections++;
-//                }
-//            }
-//
-//            // Prepare strings for IS and VI
-//            String influenceSpreadStr = (bank.getInfluenceSpread() != 0.0) ? String.format("%.2f", bank.getInfluenceSpread()) : "NaN";
-//            String vulnerabilityIndexStr = (bank.getVulnerabilityIndex() != 0.0) ? String.format("%.2f", bank.getVulnerabilityIndex()) : "NaN";
-//
-//            // Print out the bank details including the number of connections
-//            System.out.printf("Bank %d: A - %.2f, L - %.2f, Connections - %d, IS - %s, VI - %s%n", 
-//                i, bank.getAssets(), bank.getLiabilities(), connections, influenceSpreadStr, vulnerabilityIndexStr);
-//        }
-//
-//        // Print GVI if it's been calculated
-//        String gviStr = (gvi != 0.0) ? String.format("%.2f", gvi) : "NaN";
-//        System.out.println("Global Vulnerability Index (GVI): " + gviStr);
-//    }
+
+    
+    public void displayActiveBanks() {
+        System.out.println("Active Banks:");
+        banks.stream()
+             .filter(Bank::isActive)
+             .forEach(bank -> System.out.printf("Bank %d: A - %.2f, L - %.2f, IS - %.2f, VI - %.2f%n",
+                                               bank.getId(), bank.getAssets(), bank.getLiabilities(),
+                                               bank.getInfluenceSpread(), bank.getVulnerabilityIndex()));
+    }
+
     
     public void displayConsole() {
-        System.out.println("Bank Data:");
+//        System.out.println("Bank Data:");
         for (int i = 0; i < banks.size(); i++) {
             Bank bank = banks.get(i);
-
-            // Calculate the number of unique connections for the current bank
+            if (!bank.isActive()) {
+                continue; // Skip failed banks
+            }
             Set<Integer> uniqueConnections = new HashSet<>();
             for (int j = 0; j < banks.size(); j++) {
                 if (adjacencyMatrix[i][j] != 0) {
@@ -241,46 +264,22 @@ public class Simulation {
                     uniqueConnections.add(j);
                 }
             }
-
-            // Prepare strings for IS and VI
             String influenceSpreadStr = (bank.getInfluenceSpread() != 0.0) ? String.format("%.2f", bank.getInfluenceSpread()) : "NaN";
             String vulnerabilityIndexStr = (bank.getVulnerabilityIndex() != 0.0) ? String.format("%.2f", bank.getVulnerabilityIndex()) : "NaN";
-
-            // Print out the bank details including the number of unique connections
-            System.out.printf("Bank %d: A - %.2f, L - %.2f, Connections - %d, IS - %s, VI - %s%n", 
-                i, bank.getAssets(), bank.getLiabilities(), uniqueConnections.size(), influenceSpreadStr, vulnerabilityIndexStr);
+            //System.out.printf("Bank %d: A - %.2f, L - %.2f, Connections - %d, IS - %s, VI - %s%n", 
+               // i, bank.getAssets(), bank.getLiabilities(), uniqueConnections.size(), influenceSpreadStr, vulnerabilityIndexStr);
         }
 
-        // Print GVI if it's been calculated
+        // Print GVI if calculated
         String gviStr = (gvi != 0.0) ? String.format("%.2f", gvi) : "NaN";
         System.out.println("Global Vulnerability Index (GVI): " + gviStr);
     }
 
 
 
+
     
-//    
-//    public void displayGraphical() {
-//        for (int i = 0; i < banks.size(); i++) {
-//            String nodeId = Integer.toString(i);
-//            if (graph.getNode(nodeId) == null) {
-//                graph.addNode(nodeId);
-//                Node node = graph.getNode(nodeId);
-//                node.setAttribute("ui.label", "Bank " + nodeId);
-//
-//                // Set random positions
-//                double x = Math.random();
-//                double y = Math.random();
-//                node.setAttribute("xyz", x, y, 0);
-//            }
-//        }
-//
-//        // Viewer configuration
-//        Viewer viewer = graph.display();
-//        viewer.disableAutoLayout();
-//
-//
-//    }
+
     
     public void displayGraphical() {
         // Set the stylesheet for the graph
@@ -332,19 +331,7 @@ public class Simulation {
         gvi = calculateGlobalVulnerabilityIndex();
     }
     
- // Method to calculate the GVI for the banking sector
-//    public double calculateGlobalVulnerabilityIndex() {
-//        double totalVI = 0.0;
-//        for (Bank bank : banks) {
-//            totalVI += bank.getVulnerabilityIndex();
-//        }
-//        double gvi = totalVI / banks.size();
-//        allGVI.add(gvi);
-//        // Now we need to update the chart. We call the static method of GVIChartApplication.
-//        GVIChartApplication.updateChart(cycleCount, gvi);
-//        return gvi;
-//        
-//    }
+ 
     
     public double calculateGlobalVulnerabilityIndex() {
         double totalVI = 0.0;
@@ -358,15 +345,15 @@ public class Simulation {
     }
     
     
- // Method to process a cycle
     public void processCycle() {
-        // Process the cycle for each bank
         for (Bank bank : banks) {
-            bank.processCycle();
+            if (bank.isActive() && bank.getAssets() < bank.getLiabilities()) {
+                bank.failBank();
+                triggerCascade(getCycleCount(), bank);
+            }
         }
-        // Remove repaid loans from the graph
-        removeRepaidLoansFromGraph();
     }
+
     
 // // Method to remove repaid loans from the graph
     private void removeRepaidLoansFromGraph() {
@@ -384,31 +371,16 @@ public class Simulation {
             }
         }
     }
-    
-//    private void removeRepaidLoansFromGraph() {
-//        for (int i = 0; i < banks.size(); i++) {
-//            Bank bank = banks.get(i);
-//            List<Loan> repaidLoans = bank.getRepaidLoans();
-//
-//            for (Loan loan : repaidLoans) {
-//                String edgeId = getEdgeId(loan);
-//                Edge edge = graph.getEdge(edgeId);
-//                if (edge != null) {
-//                    // Highlight the edge
-//                    edge.setAttribute("ui.style", "fill-color: red; size: 3px;");
-//                    try {
-//                        Thread.sleep(500); // Delay for visibility, can be adjusted
-//                    } catch (InterruptedException e) {
-//                        Thread.currentThread().interrupt(); // Handle interruption
-//                    }
-//                    // Remove the edge
-//                    graph.removeEdge(edgeId);
-//                }
-//            }
-//        }
-//    }
-    
-    
+ 
+    public boolean anyBankActive() {
+        for (Bank bank : banks) {
+            if (bank.isActive()) {
+                return true; // Return true immediately when an active bank is found
+            }
+        }
+        return false; // Return false if no active banks are found
+    }
+
 
     
  // Helper method to get edge ID from a loan
@@ -417,6 +389,18 @@ public class Simulation {
         int bankId2 = banks.indexOf(loan.getBorrower());
         return bankId1 + "-" + bankId2;
     }
+
+
+    public double getFailureRate(int numberOfBanks) {
+        if (numberOfBanks == 0) return 0.0; // Prevent division by zero
+
+        long failedBanks = banks.stream()
+                                .filter(bank -> !bank.isActive())
+                                .count();
+
+        return (double) failedBanks / numberOfBanks * 100.0;
+    }
+
     
 }
 
