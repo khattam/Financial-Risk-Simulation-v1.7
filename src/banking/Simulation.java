@@ -1,6 +1,7 @@
 package banking;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -28,7 +29,7 @@ public class Simulation {
     private List<Double> allGVI = new ArrayList<>();
     private Random random = new Random();
     private Map<Integer, List<String>> failuresByCycle = new HashMap<>(); // Stores failures by cycle
-    
+    private int lastFailureCycle = 0;
     
 
     // Constructor initializes the adjacency matrix based on the number of banks
@@ -58,6 +59,11 @@ public class Simulation {
         }
     }
 
+
+    public double getGVI() {
+        // Ensure this method is calculating or returning the current GVI correctly
+        return calculateGlobalVulnerabilityIndex(); // Assumes this function updates and returns the latest GVI
+    }
 
     
 
@@ -101,7 +107,21 @@ public class Simulation {
                 }
             }
         }
+        
+        for (Bank bank : banks) {
+            if (bank.isActive() && bank.getAssets() < bank.getLiabilities()) {
+                double shortfall = bank.getLiabilities() - bank.getAssets();
+                if (bank.getHqla() > shortfall) {
+                    bank.useHqla(shortfall);
+                    //System.out.println("Bank " + bank.getId() + " used HQLA to cover shortfall.");
+                } else {
+                   // System.out.println("Bank " + bank.getId() + " failed after cascade despite HQLA.");
+                    bank.failBank();  // Fail the bank if HQLA is insufficient
+                }
+            }
+        }
     }
+    
 
     
 
@@ -224,15 +244,7 @@ public class Simulation {
 
 
 
-    // Calculate influence spread for each bank
-    public void calculateInfluenceSpread() {
-        System.out.print("Hello");
-    }
-
-    // Calculate vulnerability index for each bank
-    public void calculateVulnerabilityIndex() {
-        // ... To be implemented
-    }
+ 
 
 
     
@@ -346,13 +358,45 @@ public class Simulation {
     
     
     public void processCycle() {
+        boolean anyBankFailed = false;
+
         for (Bank bank : banks) {
-            if (bank.isActive() && bank.getAssets() < bank.getLiabilities()) {
-                bank.failBank();
-                triggerCascade(getCycleCount(), bank);
+            if (bank.isActive()) {
+                double assets = bank.getAssets();
+                double liabilities = bank.getLiabilities();
+                double shortfall = liabilities - assets;
+                double threshold = 0.20 * assets;  // 20% of assets
+
+                // Check if the difference between assets and liabilities is less than 20% of assets
+                if (assets <= 1.20 * liabilities && bank.getHqla() > shortfall) {
+                    //System.out.println("Bank " + bank.getId() + " is close to failing, will attempt to use HQLA to cover shortfall.");
+                    bank.useHQLA(shortfall);
+                   // System.out.println("Bank " + bank.getId() + " used HQLA to cover a shortfall of " + shortfall);
+                    // Adjust assets after using HQLA
+                    bank.adjustAssets(-shortfall);
+                } else if (assets < liabilities) {
+                    //System.out.println("Bank " + bank.getId() + " failed due to insufficient HQLA.");
+                    bank.failBank();
+                    anyBankFailed = true;
+                }
+            }
+
+//             Replenish HQLA only if it's been 50 cycles since the last failure
+            if (cycleCount - lastFailureCycle > 50) {
+                bank.replenishHQLA();
+//                System.out.println("Bank " + bank.getId() + " replenished HQLA.");
             }
         }
+
+        if (anyBankFailed) {
+            lastFailureCycle = cycleCount;
+        }
+
+        incrementCycleCount();
     }
+
+
+
 
     
 // // Method to remove repaid loans from the graph
@@ -400,6 +444,44 @@ public class Simulation {
 
         return (double) failedBanks / numberOfBanks * 100.0;
     }
+    
+    public int getNumberOfBanks() {
+        return banks.size();
+    }
+    
+    public double getAvgGVI() {
+        return allGVI.stream()
+                     .mapToDouble(Double::doubleValue)
+                     .average()
+                     .orElse(0.0); // This returns 0.0 if allGVI is empty
+    }
+
+
+	public double getTotalLoans() {
+	    return banks.stream().mapToDouble(Bank::getTotalLoansGiven).sum();
+	}
+
+
+	public int getActiveBankCount() {
+        return (int) banks.stream().filter(Bank::isActive).count();
+    }
+
+    public double getMaxGVI() {
+        return Collections.max(allGVI);
+    }
+
+    public double getMinGVI() {
+    	return Collections.min(allGVI);
+    }
+
+    public double getTotalAssets() {
+        return banks.stream().mapToDouble(Bank::getAssets).sum();
+    }
+
+    public double getTotalLiabilities() {
+        return banks.stream().mapToDouble(Bank::getLiabilities).sum();
+    }
+
 
     
 }

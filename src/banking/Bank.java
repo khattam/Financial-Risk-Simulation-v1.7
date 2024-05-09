@@ -15,8 +15,13 @@ public class Bank {
     private double influenceSpread;
     private double vulnerabilityIndex;
     
+    private double hqla;  // High-Quality Liquid Assets
+    
+    
     private double loansGivenSum;
     private double loansTakenSum;
+    
+    private int cyclesAfterUsage; 
     
     private List<Loan> loansGiven;
     private List<Loan> loansReceived;
@@ -32,6 +37,25 @@ public class Bank {
     }
     
     
+    public void replenishHQLA() {
+        double maxHQLA = 0.15 * this.assets;
+        if (this.hqla < maxHQLA) {
+            double replenishAmount = 0.01 * this.assets;
+            this.hqla += replenishAmount;
+            this.hqla = Math.min(this.hqla, maxHQLA);
+            
+            //System.out.println("Bank " + this.id + " replenishes HQLA by " + replenishAmount + ", total HQLA now " + this.hqla);
+        }
+    }
+
+
+
+
+    public void useHQLA(double shortfall) {
+        this.hqla -= shortfall;
+        this.assets -= shortfall; // Assuming direct asset reduction
+        //System.out.println("Bank " + id + " used HQLA to cover a shortfall of " + shortfall);
+    }
 
 
     public boolean isActive() {
@@ -58,9 +82,9 @@ public class Bank {
 
 
 
-    private static final double ALPHA = 1.0;
-    private static final double BETA = 1.0;
-    private static final double LAMBDA = 0.5; // Example damping factor
+    static final double ALPHA = 0.5;
+    static final double BETA = 0.5;
+    static final double LAMBDA = 0.35; // Example damping factor
 
     // Constructor to set assets and liabilities
     public Bank(double assets, double liabilities) {
@@ -74,17 +98,22 @@ public class Bank {
         
         this.loansGiven = new ArrayList<>();
         this.loansReceived = new ArrayList<>();
+        
+        this.hqla = 0.15 * assets; 
     }
 
-    // Getters and setters for the properties
-    // ... (To be implemented)
-
-    // Method to give a loan
-//    public void giveLoan(Bank receiver, double amount) {
-//        this.assets -= amount;
-//        this.loansGivenSum += amount;
-//        receiver.receiveLoan(amount);
-//    }
+    
+ // Getter for HQLA
+    public double getHqla() {
+        return hqla;
+    }
+    
+    public void useHqla(double amount) {
+        if (this.hqla >= amount) {
+            this.hqla -= amount;
+            this.assets -= amount;  // Decrease total assets as HQLA is liquidated
+        }
+    }
     
     // Method to give a loan
     public void giveLoan(Bank receiver, double amount, int cycles) {
@@ -99,11 +128,6 @@ public class Bank {
         receiver.receiveLoan(this, amount, cycles);
     }
 
-//    // Method to receive a loan
-//    public void receiveLoan(double amount) {
-//        this.assets += amount;
-//        this.loansTakenSum += amount;
-//    }
     
     //Method to receive a loan
     public void receiveLoan(Bank lender, double amount, int cycles) {
@@ -146,24 +170,7 @@ public class Bank {
     
    
     
-    
-// // Repay a loan Medhansh
-//    private void repayLoan(Bank receiver, double amount) {
-//        // Adjust assets and loansGivenSum for the lender
-//        this.assets += amount;
-//        this.loansGivenSum -= amount;
-//
-//        // Adjust assets and loansTakenSum for the borrower
-//        receiver.assets -= amount;
-//        receiver.loansTakenSum -= amount;
-//        
-//        
-//        // Print the repayment information
-//        System.out.printf("Loan to %s from %s worth %.2f is repaid!\n", 
-//                          receiver.getClass().getSimpleName(), 
-//                          this.getClass().getSimpleName(), 
-//                          amount);
-//    }
+  
     
     private void repayLoan(Bank receiver, double amount) {
       // Adjust assets and loansGivenSum for the lender
@@ -172,17 +179,11 @@ public class Bank {
 
       // Adjust assets and loansTakenSum for the borrower
       receiver.assets -= amount;
-      receiver.loansTakenSum -= amount;
-      
-      
-      // Print the repayment information
-//      System.out.printf("Loan to %s from %s worth %.2f is repaid!\n", 
-//                        receiver.getClass().getSimpleName(), 
-//                        this.getClass().getSimpleName(), 
-//                        amount);
-  }
 
- //
+    }
+      
+      
+    
 
 	public double getAssets() { 
 		return this.assets;
@@ -266,9 +267,31 @@ public class Bank {
 
 
 
-
+    public double getTotalLoansGiven() {
+        return loansGiven.stream().mapToDouble(Loan::getAmount).sum();
+    }
+    
 	public int getId() {
 		// TODO Auto-generated method stub
 		return id;
 	}
+	
+	
+	public static double getAlpha() {
+        return ALPHA;
+    }
+
+
+
+    public static double getBeta() {
+        return BETA;
+    }
+
+  
+    public static double getLambda() {
+        return LAMBDA;
+    }
+
+    
+
 }
