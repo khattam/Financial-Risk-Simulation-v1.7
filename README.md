@@ -93,8 +93,6 @@ We welcome contributions to this project! To contribute, follow these steps:
 
 For major changes, please open an issue first to discuss what you would like to change. Ensure that your code adheres to the coding guidelines and is well-tested.
 
-## License
-This project is licensed under the MIT License. See the LICENSE file for more details.
 
 ---
 
